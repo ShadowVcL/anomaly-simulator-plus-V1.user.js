@@ -1,172 +1,152 @@
 // ==UserScript==
-// @id             anomaly-simulator
-// @name           IITC Plugin: Anomaly Simulator Plus
+// @id             iitc-plugin-anomaly-simulator
+// @name           IITC Plugin: Anomaly Simulator
 // @category       Layer
-// @version        1.2
-// @namespace      https://github.com/tuusuario/anomaly-simulator
-// @description    Simula una anomalía en IITC con integración a Draw Tools y carga de mapas reales
-// @include        https://intel.ingress.com/*
-// @match          https://intel.ingress.com/*
+// @version        1.1.0
+// @description    Simulador de anomalías para entrenamiento. Compatible con DrawTools y menú de IITC.
+// @match          *://intel.ingress.com/*
 // @grant          none
 // ==/UserScript==
 
 function wrapper(plugin_info) {
-  // Plugin base
-  window.plugin.anomalySimulator = {};
+    if (typeof window.plugin !== 'function') window.plugin = function () {};
 
-  const plugin = window.plugin.anomalySimulator;
-  plugin.zones = [];
-  plugin.tasks = {};
-  plugin.logs = [];
+    plugin_info.buildName = 'anomaly-simulator';
+    plugin_info.dateTimeVersion = '202507030002';
+    plugin_info.pluginId = 'iitc-plugin-anomaly-simulator';
 
-  plugin.defaultStyle = {
-    color: '#ff6600',
-    weight: 2,
-    opacity: 0.8,
-    fillColor: '#ff9900',
-    fillOpacity: 0.3,
-  };
+    window.plugin.anomalySimulator = function () {};
+    const plugin = window.plugin.anomalySimulator;
 
-  // === Agrega capa al layer chooser ===
-  plugin.layerGroup = new L.LayerGroup();
-  window.addLayerGroup('Anomaly Simulator Zones', plugin.layerGroup, true);
-
-  plugin.addZone = function (lat, lng, radius, name) {
-    const circle = L.circle([lat, lng], {
-      ...plugin.defaultStyle,
-      radius: radius,
-    });
-    circle.bindPopup(`<b>Zona:</b> ${name}`);
-    plugin.layerGroup.addLayer(circle);
-    plugin.zones.push({ name, lat, lng, radius });
-  };
-
-  plugin.simulateShard = function (lat, lng) {
-    const marker = L.marker([lat, lng], {
-      icon: L.icon({
-        iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Orange_circle.svg/1024px-Orange_circle.svg.png',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      }),
-    }).addTo(plugin.layerGroup);
-    marker.bindPopup('Shard simulado');
-    plugin.logEvent('Shard simulado en ' + lat.toFixed(5) + ',' + lng.toFixed(5));
-  };
-
-  plugin.assignTask = function (agent, task) {
-    plugin.tasks[agent] = task;
-    plugin.logEvent(`Tarea asignada a ${agent}: ${task}`);
-  };
-
-  plugin.logEvent = function (message) {
-    const timestamp = new Date().toLocaleTimeString();
-    plugin.logs.push(`[${timestamp}] ${message}`);
-    console.log('[AnomalySimulator]', message);
-  };
-
-  plugin.importDrawnZones = function () {
-    if (!window.plugin.drawTools || !window.plugin.drawTools.drawnItems) {
-      alert("Draw Tools no está activo.");
-      return;
-    }
-
-    window.plugin.drawTools.drawnItems.eachLayer(function (layer) {
-      const type = layer instanceof L.Circle
-        ? 'circle'
-        : layer instanceof L.Polygon
-        ? 'polygon'
-        : layer instanceof L.Polyline
-        ? 'line'
-        : 'unknown';
-
-      if (type !== 'circle') return;
-
-      const center = layer.getLatLng();
-      const radius = layer.getRadius();
-      const name = prompt(`Nombre para la zona (${type}):`, "Zona");
-
-      plugin.addZone(center.lat, center.lng, radius, name);
-      plugin.logEvent(`Zona importada: ${name}`);
-    });
-
-    alert("Zonas importadas desde Draw Tools.");
-  };
-
-  plugin.importFromJson = function () {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-
-    input.onchange = e => {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const data = JSON.parse(e.target.result);
-          data.zones?.forEach(z => {
-            plugin.addZone(z.lat, z.lng, z.radius, z.name);
-          });
-          plugin.logEvent("Mapa importado desde archivo JSON.");
-        } catch (err) {
-          alert("Error al cargar el archivo.");
-          console.error(err);
-        }
-      };
-      reader.readAsText(file);
+    plugin.enabled = true;
+    plugin.zones = [];
+    plugin.tasks = {};
+    plugin.logs = [];
+    plugin.layerGroup = new L.LayerGroup();
+    plugin.defaultStyle = {
+        color: '#ff6600',
+        weight: 2,
+        opacity: 0.8,
+        fillColor: '#ff9900',
+        fillOpacity: 0.3,
     };
 
-    input.click();
-  };
+    plugin.toggleEnable = function () {
+        plugin.enabled = !plugin.enabled;
+        if (plugin.enabled) {
+            window.map.addLayer(plugin.layerGroup);
+            plugin.logEvent("Simulador activado.");
+        } else {
+            window.map.removeLayer(plugin.layerGroup);
+            plugin.logEvent("Simulador desactivado.");
+        }
+    };
 
-  plugin.showControlPanel = function () {
-    const html = `
-      <div>
-        <h4>Simulador de Anomalías</h4>
-        <button onclick="window.plugin.anomalySimulator.importDrawnZones()">Importar zonas (DrawTools)</button><br/>
-        <button onclick="window.plugin.anomalySimulator.importFromJson()">Importar mapa (.json)</button><br/>
-        <button onclick="window.plugin.anomalySimulator.simulateShard(-36.827, -73.050)">Simular Shard</button><br/>
-        <button onclick="window.plugin.anomalySimulator.assignTask('AgenteX', 'Defender zona 1')">Asignar tarea</button><br/>
-        <button onclick="alert(window.plugin.anomalySimulator.logs.join('\\n'))">Ver Log</button>
-      </div>
-    `;
+    plugin.logEvent = function (msg) {
+        const time = new Date().toLocaleTimeString();
+        plugin.logs.push(`[${time}] ${msg}`);
+        console.log('[AnomalySimulator]', msg);
+    };
 
-    dialog({
-      title: 'Simulador de Anomalías',
-      html: html,
-      width: 'auto',
-      dialogClass: 'ui-dialog',
-    });
-  };
+    plugin.addZone = function (lat, lng, radius, name) {
+        if (!plugin.enabled) {
+            alert("El simulador está desactivado.");
+            return;
+        }
+        const circle = L.circle([lat, lng], {
+            ...plugin.defaultStyle,
+            radius: radius,
+        }).bindPopup(`<b>Zona:</b> ${name}`);
+        plugin.layerGroup.addLayer(circle);
+        plugin.zones.push({ name, lat, lng, radius });
+    };
 
-  const setup = function () {
-    plugin.showControlPanel();
+    plugin.simulateShard = function (lat, lng) {
+        if (!plugin.enabled) {
+            alert("El simulador está desactivado.");
+            return;
+        }
+        const marker = L.marker([lat, lng], {
+            icon: L.icon({
+                iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Orange_circle.svg/1024px-Orange_circle.svg.png',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+            }),
+        }).bindPopup('Shard simulado');
+        plugin.layerGroup.addLayer(marker);
+        plugin.logEvent(`Shard simulado en ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+    };
 
-    // Añade botón al menú Toolbox de IITC
-    if (window.useAndroidPanes) {
-      android.addPane('anomalySim', 'Anomaly Sim');
-      android.addPaneButton('anomalySim', 'Panel', plugin.showControlPanel);
-    } else {
-      $('#toolbox').append(
-        `<a onclick="window.plugin.anomalySimulator.showControlPanel()">Anomaly Sim</a>`
-      );
+    plugin.assignTask = function (agent, task) {
+        plugin.tasks[agent] = task;
+        plugin.logEvent(`Tarea asignada a ${agent}: ${task}`);
+    };
+
+    plugin.importDrawnZones = function () {
+        if (!window.plugin.drawTools || !window.plugin.drawTools.drawnItems) {
+            alert("DrawTools no está activo.");
+            return;
+        }
+
+        window.plugin.drawTools.drawnItems.eachLayer(layer => {
+            if (layer instanceof L.Circle) {
+                const center = layer.getLatLng();
+                const radius = layer.getRadius();
+                const name = prompt("Nombre para la zona:", "Zona");
+                if (name) plugin.addZone(center.lat, center.lng, radius, name);
+            }
+        });
+
+        plugin.logEvent("Zonas importadas desde DrawTools.");
+    };
+
+    plugin.showControlPanel = function () {
+        const html = `
+            <div>
+                <label><input type="checkbox" onclick="window.plugin.anomalySimulator.toggleEnable()" ${plugin.enabled ? "checked" : ""}/> Activar simulador</label><br/><br/>
+                <button onclick="window.plugin.anomalySimulator.importDrawnZones()">Importar zonas (DrawTools)</button><br/>
+                <button onclick="window.plugin.anomalySimulator.simulateShard(-36.827, -73.050)">Simular Shard</button><br/>
+                <button onclick="window.plugin.anomalySimulator.assignTask('AgenteX', 'Defender zona 1')">Asignar tarea</button><br/>
+                <button onclick="alert(window.plugin.anomalySimulator.logs.join('\\n'))">Ver log</button>
+            </div>
+        `;
+        dialog({
+            title: 'Simulador de Anomalías',
+            html: html,
+            width: 'auto',
+            dialogClass: 'ui-dialog',
+        });
+    };
+
+    function setup() {
+        window.addLayerGroup('Anomaly Simulator Zones', plugin.layerGroup, plugin.enabled);
+
+        if (window.useAndroidPanes) {
+            android.addPane('anomalySim', 'Anomaly Sim');
+            android.addPaneButton('anomalySim', 'Panel', plugin.showControlPanel);
+        } else {
+            $('#toolbox').append('<a onclick="window.plugin.anomalySimulator.showControlPanel()">Anomaly Sim</a>');
+        }
+
+        plugin.logEvent("Simulador listo.");
     }
 
-    plugin.logEvent("Simulador cargado y listo.");
-  };
-
-  setup.info = plugin_info;
-  if (window.bootPlugins) {
+    setup.info = plugin_info;
+    if (!window.bootPlugins) window.bootPlugins = [];
     window.bootPlugins.push(setup);
-  } else {
-    window.bootPlugins = [setup];
-  }
-
-  if (window.iitcLoaded) {
-    setup();
-  }
+    if (window.iitcLoaded && typeof setup === 'function') setup();
 }
 
-// INICIO DEL PLUGIN
 var script = document.createElement('script');
-script.appendChild(document.createTextNode('(' + wrapper.toString() + ')({});'));
+var info = {};
+
+if (typeof GM_info !== 'undefined' && GM_info && GM_info.script) {
+    info.script = {
+        version: GM_info.script.version,
+        name: GM_info.script.name,
+        description: GM_info.script.description
+    };
+}
+
+script.appendChild(document.createTextNode('(' + wrapper + ')(' + JSON.stringify(info) + ')'));
 (document.body || document.head || document.documentElement).appendChild(script);
