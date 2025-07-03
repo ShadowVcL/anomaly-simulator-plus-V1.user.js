@@ -1,0 +1,161 @@
+// ==UserScript==
+// @id             iitc-plugin-anomaly-simulator-plus
+// @name           IITC Plugin: Anomaly Simulator Plus
+// @category       Training
+// @version        1.1
+// @description    Simula una anomalía de Ingress en IITC con DrawTools y mapas reales
+// @include        https://intel.ingress.com/*
+// @grant          none
+// ==/UserScript==
+
+function wrapper(plugin_info) {
+  if (window.plugin.anomalySimulator) return;
+
+  window.plugin.anomalySimulator = function () { };
+  const self = window.plugin.anomalySimulator;
+
+  self.zones = [];
+  self.tasks = {};
+  self.logs = [];
+
+  self.defaultStyle = {
+    color: '#ff6600',
+    weight: 2,
+    opacity: 0.8,
+    fillColor: '#ff9900',
+    fillOpacity: 0.3,
+  };
+
+  // === INTEGRACIÓN DRAW TOOLS ===
+  self.importDrawnZones = function () {
+    if (!window.plugin.drawTools || !window.plugin.drawTools.drawnItems) {
+      alert("DrawTools no está activo.");
+      return;
+    }
+
+    window.plugin.drawTools.drawnItems.eachLayer(function (layer) {
+      const type = layer instanceof L.Circle
+        ? 'circle'
+        : layer instanceof L.Polygon
+        ? 'polygon'
+        : layer instanceof L.Polyline
+        ? 'line'
+        : 'unknown';
+
+      const center = layer.getLatLng();
+      const radius = layer.getRadius ? layer.getRadius() : null;
+      const name = prompt(`Nombre para ${type}:`, "Zona");
+
+      self.zones.push({
+        name,
+        type,
+        lat: center.lat,
+        lng: center.lng,
+        radius: radius || 0,
+      });
+
+      self.logEvent(`Importado desde DrawTools: ${name}`);
+    });
+
+    alert("Zonas importadas desde DrawTools.");
+  };
+
+  // === CARGA DE MAPAS JSON ===
+  self.importFromJson = function () {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = e => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const data = JSON.parse(e.target.result);
+          data.zones?.forEach(z => {
+            self.addZone(z.lat, z.lng, z.radius, z.name);
+          });
+          self.logEvent("Mapa importado desde archivo JSON.");
+        } catch (err) {
+          alert("Error al cargar el archivo.");
+          console.error(err);
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    input.click();
+  };
+
+  self.addZone = function (lat, lng, radius, name) {
+    const circle = L.circle([lat, lng], {
+      ...self.defaultStyle,
+      radius: radius,
+    }).addTo(window.map);
+    circle.bindPopup(`<b>Zona:</b> ${name}`);
+    self.zones.push({ name, lat, lng, radius });
+  };
+
+  self.assignTask = function (agent, task) {
+    self.tasks[agent] = task;
+    self.logEvent(`Tarea asignada a ${agent}: ${task}`);
+  };
+
+  self.logEvent = function (message) {
+    const timestamp = new Date().toLocaleTimeString();
+    self.logs.push(`[${timestamp}] ${message}`);
+    console.log(`[AnomalySimulator] ${message}`);
+  };
+
+  self.simulateShard = function (lat, lng) {
+    const marker = L.marker([lat, lng], {
+      icon: L.icon({
+        iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Orange_circle.svg/1024px-Orange_circle.svg.png',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      }),
+    }).addTo(window.map);
+    marker.bindPopup('Shard simulado');
+    self.logEvent('Shard simulado en ' + lat.toFixed(5) + ',' + lng.toFixed(5));
+  };
+
+  self.showControlPanel = function () {
+    const html = `
+      <div>
+        <h4>Simulador de Anomalías</h4>
+        <button onclick="window.plugin.anomalySimulator.importDrawnZones()">Importar zonas (DrawTools)</button><br/>
+        <button onclick="window.plugin.anomalySimulator.importFromJson()">Importar mapa real (.json)</button><br/>
+        <button onclick="window.plugin.anomalySimulator.simulateShard(-36.827, -73.050)">Simular Shard</button><br/>
+        <button onclick="window.plugin.anomalySimulator.assignTask('AgenteX', 'Defender zona 1')">Asignar Tarea</button><br/>
+        <button onclick="alert(window.plugin.anomalySimulator.logs.join('\\n'))">Ver Log</button>
+      </div>
+    `;
+    dialog({
+      title: 'Simulador de Anomalías',
+      html: html,
+      width: 'auto',
+      dialogClass: 'ui-dialog',
+    });
+  };
+
+  const setup = function () {
+    self.showControlPanel();
+    self.logEvent("Simulador extendido cargado.");
+  };
+
+  setup.info = plugin_info;
+  if (window.bootPlugins) {
+    window.bootPlugins.push(setup);
+  } else {
+    window.bootPlugins = [setup];
+  }
+
+  if (window.iitcLoaded) {
+    setup();
+  }
+}
+
+// PLUGIN END
+var script = document.createElement('script');
+script.appendChild(document.createTextNode('(' + wrapper.toString() + ')({});'));
+(document.body || document.head || document.documentElement).appendChild(script);
