@@ -1,7 +1,7 @@
 // ==UserScript==
 // @id             iitc-plugin-anomaly-simulator-complete@tu_usuario
 // @name           IITC plugin: Simulador Completo de Anomalías
-// @category       misc
+// @category       Misc
 // @version        0.2.0
 // @namespace      https://tu-sitio.com
 // @updateURL      https://tu-sitio.com/iitc-plugin-anomaly-simulator-complete.user.js
