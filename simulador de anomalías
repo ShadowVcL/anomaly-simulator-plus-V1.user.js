@@ -1,7 +1,7 @@
 // ==UserScript==
-// @id              iitc_plugin_anomaly_simulator
+// @id             
 // @name           IITC Plugin: Anomaly Simulator
-// @category       Misc
+// @category      Misc 
 // @version        1.1
 // @description    Simula anomalías para práctica, compatible con Draw Tools y Bookmarks
 // @author         ShadowVcL
