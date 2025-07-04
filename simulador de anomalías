@@ -1,12 +1,14 @@
 // ==UserScript==
-// @id             iitc-plugin-anomaly-simulator@tu_usuario
+// @id             
 // @name           IITC Plugin: Anomaly Simulator
 // @category       Misc
-// @version        0.1.1
-// @namespace      https://tu-sitio.com
+// @version        1.1
 // @description    Simula anomalías para práctica, compatible con Draw Tools y Bookmarks
-// @author         Hugo Parra
-// @match          https://intel.ingress.com/*
+// @author         ShadowVcL
+// @downloadURL    https://github.com/ShadowVcL/shardKMmark
+// @updateURL      https://your-update-url-here
+// @match          *://intel.ingress.com/*
+// @match          *://intel-x.ingress.com/*
 // @grant          none
 // ==/UserScript==
 
