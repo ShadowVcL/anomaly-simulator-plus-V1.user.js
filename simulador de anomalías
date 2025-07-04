@@ -1,29 +1,31 @@
 // ==UserScript==
-// @id             iitc_plugin_anomaly_simulator
-// @name           Anomaly Simulator
+// @id             iitc-plugin-anomaly-simulator@tu_usuario
+// @name           IITC Plugin: Anomaly Simulator
 // @category       Misc
-// @version        0.1.0
-// @description    Simula anomalías con zonas y sitios, compatible con Draw Tools y Bookmarks
-// @author         ShadowVcL
-// @match          *://intel.ingress.com/*
+// @version        0.1.1
+// @namespace      https://tu-sitio.com
+// @description    Simula anomalías para práctica, compatible con Draw Tools y Bookmarks
+// @author         Hugo Parra
+// @match          https://intel.ingress.com/*
 // @grant          none
 // ==/UserScript==
 
 function wrapper(plugin_info) {
+  // Asegurar namespace plugin
   if(typeof window.plugin !== 'function') window.plugin = function(){};
 
   window.plugin.anomalySimulator = {
     active: false,
     phase: 1,
-    zones: [],   // {layer: L.Layer, active: bool, phase: int}
-    sites: [],   // {id: string, name: string, latLng: L.LatLng, active: bool, phase: int, marker: L.Marker}
+    zones: [], // {layer: L.Layer, active: bool, phase: int}
+    sites: [], // {id:string, name:string, latLng:L.LatLng, active:bool, phase:int, marker:L.Marker}
 
     setup: function() {
-      // Añadir botón para activar/desactivar simulación
-      var toggleBtn = $('<a>')
+      // Crear botón activar/desactivar
+      var $toggle = $('<a>')
+        .attr('id','anomaly-sim-toggle')
+        .attr('title','Activar / Desactivar simulación anomalía')
         .text('Anomaly: off')
-        .attr('title', 'Toggle Anomaly Simulator')
-        .attr('id', 'anomaly-simulator-toggle')
         .click(function() {
           window.plugin.anomalySimulator.active = !window.plugin.anomalySimulator.active;
           $(this).text(window.plugin.anomalySimulator.active ? 'Anomaly: on' : 'Anomaly: off');
@@ -31,20 +33,20 @@ function wrapper(plugin_info) {
         })
         .appendTo('#toolbox');
 
-      // Botón para agregar zona desde Draw Tools
-      var addZoneBtn = $('<a>')
+      // Crear botón agregar zona desde Draw Tools
+      var $addZone = $('<a>')
+        .attr('title','Agregar zona desde Draw Tools')
         .text('Add Zone')
-        .attr('title', 'Add zone from Draw Tools')
         .click(function() {
-          if(!window.plugin.drawTools) {
-            alert('Draw Tools plugin not loaded!');
+          if(!window.plugin.drawTools || !window.plugin.drawTools.drawnItems) {
+            alert('Draw Tools no está activo o cargado.');
             return;
           }
-          var drawnItems = window.plugin.drawTools.drawnItems._layers;
+          var layers = window.plugin.drawTools.drawnItems._layers;
           var lastLayer = null;
-          for(var k in drawnItems) lastLayer = drawnItems[k];
+          for(var k in layers) lastLayer = layers[k];
           if(!lastLayer) {
-            alert('No zone drawn in Draw Tools!');
+            alert('No hay zona creada en Draw Tools.');
             return;
           }
           window.plugin.anomalySimulator.zones.push({
@@ -52,21 +54,21 @@ function wrapper(plugin_info) {
             active: true,
             phase: window.plugin.anomalySimulator.phase
           });
-          alert('Zone added to anomaly simulator');
+          alert('Zona agregada.');
           window.plugin.anomalySimulator.refresh();
         })
         .appendTo('#toolbox');
 
-      // Botón para agregar sitio manualmente
-      var addSiteBtn = $('<a>')
+      // Crear botón para agregar sitio manual
+      var $addSite = $('<a>')
+        .attr('title','Agregar sitio manual')
         .text('Add Site')
-        .attr('title', 'Add a control site manually')
         .click(function() {
-          var name = prompt('Enter site name:');
-          if(!name) return alert('Invalid name');
-          var lat = parseFloat(prompt('Enter latitude:'));
-          var lng = parseFloat(prompt('Enter longitude:'));
-          if(isNaN(lat) || isNaN(lng)) return alert('Invalid coordinates');
+          var name = prompt('Nombre sitio:');
+          if(!name) return alert('Nombre inválido.');
+          var lat = parseFloat(prompt('Latitud:'));
+          var lng = parseFloat(prompt('Longitud:'));
+          if(isNaN(lat) || isNaN(lng)) return alert('Coordenadas inválidas.');
           window.plugin.anomalySimulator.sites.push({
             id: 'manual_' + Date.now(),
             name: name,
@@ -79,38 +81,36 @@ function wrapper(plugin_info) {
         })
         .appendTo('#toolbox');
 
-      // Selector fase
-      var phaseSelect = $('<select>')
-        .attr('title', 'Select simulation phase')
-        .attr('id', 'anomaly-phase-select')
+      // Selector fases
+      var $phaseLabel = $('<label>').text('Phase: ');
+      var $phaseSelect = $('<select>')
+        .attr('title','Seleccionar fase de simulación')
+        .attr('id','anomaly-sim-phase-select')
         .append(
-          $('<option>').val(1).text('Phase 1'),
-          $('<option>').val(2).text('Phase 2'),
-          $('<option>').val(3).text('Phase 3')
+          $('<option>').val(1).text('1'),
+          $('<option>').val(2).text('2'),
+          $('<option>').val(3).text('3')
         )
         .val(window.plugin.anomalySimulator.phase)
         .change(function() {
           window.plugin.anomalySimulator.phase = parseInt($(this).val());
           window.plugin.anomalySimulator.refresh();
-        })
-        .appendTo('#toolbox');
+        });
 
-      $('<label>')
-        .text(' Phase: ')
-        .prependTo(phaseSelect);
+      $('#toolbox').append($phaseLabel).append($phaseSelect);
 
-      // Botón para listar bookmarks
-      var listBookmarksBtn = $('<a>')
+      // Botón listar bookmarks
+      var $listBms = $('<a>')
+        .attr('title','Listar bookmarks')
         .text('List Bookmarks')
-        .attr('title', 'List current bookmarks')
         .click(function() {
           if(!window.plugin.bookmarks) {
-            alert('Bookmarks plugin not loaded!');
+            alert('Bookmarks plugin no está activo.');
             return;
           }
-          var bms = window.plugin.bookmarks.bookmarks;
-          if(!bms || bms.length === 0) {
-            alert('No bookmarks saved.');
+          var bms = window.plugin.bookmarks.bookmarks || [];
+          if(bms.length === 0) {
+            alert('No hay bookmarks.');
             return;
           }
           var msg = 'Bookmarks:\n';
@@ -121,22 +121,22 @@ function wrapper(plugin_info) {
         })
         .appendTo('#toolbox');
 
-      // Botón exportar configuración JSON
-      var exportBtn = $('<a>')
+      // Botón exportar configuración
+      var $exportBtn = $('<a>')
+        .attr('title','Exportar configuración JSON')
         .text('Export Config')
-        .attr('title', 'Export anomaly configuration JSON')
         .click(function() {
           var exportData = {
             active: window.plugin.anomalySimulator.active,
             phase: window.plugin.anomalySimulator.phase,
-            zones: window.plugin.anomalySimulator.zones.map(function(z){
+            zones: window.plugin.anomalySimulator.zones.map(function(z) {
               return {
                 geojson: z.layer.toGeoJSON(),
                 active: z.active,
                 phase: z.phase
               };
             }),
-            sites: window.plugin.anomalySimulator.sites.map(function(s){
+            sites: window.plugin.anomalySimulator.sites.map(function(s) {
               return {
                 id: s.id,
                 name: s.name,
@@ -146,4 +146,61 @@ function wrapper(plugin_info) {
               };
             })
           };
-          var jsonStr = JSON.stringif
+          var jsonStr = JSON.stringify(exportData,null,2);
+          prompt('Copiar configuración JSON:', jsonStr);
+        })
+        .appendTo('#toolbox');
+
+      // Botón importar configuración
+      var $importBtn = $('<a>')
+        .attr('title','Importar configuración JSON')
+        .text('Import Config')
+        .click(function() {
+          var jsonStr = prompt('Pegar configuración JSON:');
+          if(!jsonStr) return;
+          try {
+            var data = JSON.parse(jsonStr);
+
+            // Limpiar capas actuales
+            window.plugin.anomalySimulator.zones.forEach(function(z){
+              if(window.map.hasLayer(z.layer)) window.map.removeLayer(z.layer);
+            });
+            window.plugin.anomalySimulator.sites.forEach(function(s){
+              if(s.marker) {
+                window.map.removeLayer(s.marker);
+                s.marker = null;
+              }
+            });
+
+            window.plugin.anomalySimulator.zones = [];
+            window.plugin.anomalySimulator.sites = [];
+
+            data.zones.forEach(function(z){
+              var layer = L.geoJSON(z.geojson).getLayers()[0];
+              window.plugin.anomalySimulator.zones.push({
+                layer: layer,
+                active: z.active,
+                phase: z.phase
+              });
+            });
+            data.sites.forEach(function(s){
+              window.plugin.anomalySimulator.sites.push({
+                id: s.id,
+                name: s.name,
+                latLng: L.latLng(s.latLng.lat, s.latLng.lng),
+                active: s.active,
+                phase: s.phase,
+                marker: null
+              });
+            });
+
+            window.plugin.anomalySimulator.phase = data.phase || 1;
+            window.plugin.anomalySimulator.active = data.active || false;
+
+            $('#anomaly-sim-toggle').text(window.plugin.anomalySimulator.active ? 'Anomaly: on' : 'Anomaly: off');
+            $('#anomaly-sim-phase-select').val(window.plugin.anomalySimulator.phase);
+
+            window.plugin.anomalySimulator.refresh();
+            alert('Configuración importada correctamente.');
+          } catch(e) {
+            alert('Erro
