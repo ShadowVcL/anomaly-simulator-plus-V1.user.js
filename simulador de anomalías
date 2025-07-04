@@ -5,7 +5,7 @@
 // @version        1.1
 // @description    Simula anomalías para práctica, compatible con Draw Tools y Bookmarks
 // @author         ShadowVcL
-// @downloadURL    https://github.com/ShadowVcL/shardKMmark
+// @downloadURL    https://github.com/ShadowVcL/anomaly-simulator-plus-V1.user.js
 // @updateURL      https://your-update-url-here
 // @match          *://intel.ingress.com/*
 // @match          *://intel-x.ingress.com/*
