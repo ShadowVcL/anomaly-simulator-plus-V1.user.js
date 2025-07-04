@@ -18,173 +18,178 @@ function wrapper(plugin_info) {
   window.plugin.anomalySimulator = {
     active: false,
     phase: 1,
-    zones: [], // {latLngs: LatLng[], polygon: L.Polygon, active: bool, phase: int}
-    sites: [], // {id:string, name:string, latLng:L.LatLng, active:bool, phase:int, marker:L.Marker}
+    zones: [],
+    sites: [],
 
     setup: function () {
-      // Activar / Desactivar simulación
       $('<a>')
-        .text('Anomaly: off')
-        .attr('id', 'anomaly-toggle')
-        .attr('title', 'Activar / Desactivar simulación de anomalía')
-        .click(function () {
-          window.plugin.anomalySimulator.active = !window.plugin.anomalySimulator.active;
-          $(this).text(window.plugin.anomalySimulator.active ? 'Anomaly: on' : 'Anomaly: off');
-          window.plugin.anomalySimulator.refresh();
-        })
+        .text('Anomaly Simulator')
+        .attr('title', 'Abrir panel de simulación de anomalía')
+        .click(window.plugin.anomalySimulator.togglePanel)
         .appendTo('#toolbox');
 
-      // Agregar zona manual (como polígono)
-      $('<a>')
-        .text('Add Manual Zone')
-        .attr('title', 'Agregar zona (lat,lng) como polígono')
-        .click(function () {
-          var raw = prompt('Ingrese coordenadas separadas por punto y coma (lat,lng;lat,lng...):');
-          if (!raw) return;
-
-          try {
-            var latlngs = raw.split(';').map(pair => {
-              var [lat, lng] = pair.split(',').map(Number);
-              if (isNaN(lat) || isNaN(lng)) throw new Error();
-              return [lat, lng];
-            });
-            var polygon = L.polygon(latlngs, {
-              color: 'red',
-              fillColor: '#f03',
-              fillOpacity: 0.3,
-              weight: 2
-            });
-            window.plugin.anomalySimulator.zones.push({
-              latLngs: latlngs,
-              polygon: polygon,
-              active: true,
-              phase: window.plugin.anomalySimulator.phase
-            });
-            alert('Zona agregada.');
-            window.plugin.anomalySimulator.refresh();
-          } catch (e) {
-            alert('Error en el formato de coordenadas.');
-          }
-        })
-        .appendTo('#toolbox');
-
-      // Agregar sitio manual
-      $('<a>')
-        .text('Add Site')
-        .attr('title', 'Agregar sitio manual')
-        .click(function () {
-          var name = prompt('Nombre del sitio:');
-          var lat = parseFloat(prompt('Latitud:'));
-          var lng = parseFloat(prompt('Longitud:'));
-          if (!name || isNaN(lat) || isNaN(lng)) {
-            alert('Datos inválidos.');
-            return;
-          }
-          window.plugin.anomalySimulator.sites.push({
-            id: 'manual_' + Date.now(),
-            name: name,
-            latLng: L.latLng(lat, lng),
-            active: true,
-            phase: window.plugin.anomalySimulator.phase,
-            marker: null
-          });
-          window.plugin.anomalySimulator.refresh();
-        })
-        .appendTo('#toolbox');
-
-      // Selección de fase
-      var $phase = $('<select>')
-        .attr('title', 'Fase actual')
-        .attr('id', 'anomaly-phase-select')
-        .append(
-          $('<option>').val(1).text('Fase 1'),
-          $('<option>').val(2).text('Fase 2'),
-          $('<option>').val(3).text('Fase 3')
-        )
-        .val(window.plugin.anomalySimulator.phase)
-        .change(function () {
-          window.plugin.anomalySimulator.phase = parseInt($(this).val());
-          window.plugin.anomalySimulator.refresh();
-        });
-
-      $('#toolbox').append($('<label>').text('Phase: ')).append($phase);
-
-      // Exportar configuración
-      $('<a>')
-        .text('Export Config')
-        .attr('title', 'Exportar configuración JSON')
-        .click(function () {
-          var exportData = {
-            active: window.plugin.anomalySimulator.active,
-            phase: window.plugin.anomalySimulator.phase,
-            zones: window.plugin.anomalySimulator.zones.map(z => ({
-              latLngs: z.latLngs,
-              active: z.active,
-              phase: z.phase
-            })),
-            sites: window.plugin.anomalySimulator.sites.map(s => ({
-              id: s.id,
-              name: s.name,
-              latLng: s.latLng,
-              active: s.active,
-              phase: s.phase
-            }))
-          };
-          prompt('Copie la configuración JSON:', JSON.stringify(exportData, null, 2));
-        })
-        .appendTo('#toolbox');
-
-      // Importar configuración
-      $('<a>')
-        .text('Import Config')
-        .attr('title', 'Importar configuración JSON')
-        .click(function () {
-          var input = prompt('Pegar configuración JSON:');
-          if (!input) return;
-          try {
-            var data = JSON.parse(input);
-
-            // Limpiar capas existentes
-            window.plugin.anomalySimulator.zones.forEach(z => {
-              if (window.map.hasLayer(z.polygon)) window.map.removeLayer(z.polygon);
-            });
-            window.plugin.anomalySimulator.sites.forEach(s => {
-              if (s.marker) window.map.removeLayer(s.marker);
-            });
-
-            // Cargar nuevas
-            window.plugin.anomalySimulator.zones = data.zones.map(z => {
-              var polygon = L.polygon(z.latLngs, {
-                color: 'red',
-                fillColor: '#f03',
-                fillOpacity: 0.3,
-                weight: 2
-              });
-              return { ...z, polygon };
-            });
-
-            window.plugin.anomalySimulator.sites = data.sites.map(s => ({
-              ...s,
-              latLng: L.latLng(s.latLng.lat, s.latLng.lng),
-              marker: null
-            }));
-
-            window.plugin.anomalySimulator.phase = data.phase || 1;
-            window.plugin.anomalySimulator.active = data.active || false;
-            $('#anomaly-toggle').text(window.plugin.anomalySimulator.active ? 'Anomaly: on' : 'Anomaly: off');
-            $('#anomaly-phase-select').val(window.plugin.anomalySimulator.phase);
-            window.plugin.anomalySimulator.refresh();
-          } catch (e) {
-            alert('JSON inválido.');
-          }
-        })
-        .appendTo('#toolbox');
+      window.plugin.anomalySimulator.createUI();
 
       window.addHook('mapDataRefreshEnd', window.plugin.anomalySimulator.refresh);
     },
 
+    togglePanel: function () {
+      $('#anomaly-sim-panel').toggle();
+    },
+
+    createUI: function () {
+      if ($('#anomaly-sim-panel').length) return;
+
+      const html = `
+        <div id="anomaly-sim-panel" style="
+          display:none; position:fixed; top:60px; right:10px;
+          z-index:9999; background:#1b1d1f; color:white; padding:10px;
+          border:2px solid #666; border-radius:8px; width:250px;
+          font-family: sans-serif; box-shadow: 0 0 8px #000;">
+          <h4 style="margin-top:0">Anomaly Simulator</h4>
+          <label><input type="checkbox" id="anomaly-active"> Activar simulación</label><br><br>
+
+          <label>Fase:
+            <select id="anomaly-phase">
+              <option value="1">Fase 1</option>
+              <option value="2">Fase 2</option>
+              <option value="3">Fase 3</option>
+            </select>
+          </label><br><br>
+
+          <button id="anomaly-add-site">Agregar Sitio</button><br><br>
+          <button id="anomaly-add-zone">Agregar Zona</button><br><br>
+          <button id="anomaly-export">Exportar Config</button><br><br>
+          <button id="anomaly-import">Importar Config</button><br><br>
+          <button id="anomaly-close">Cerrar</button>
+        </div>
+      `;
+
+      $('body').append(html);
+
+      $('#anomaly-active').change(function () {
+        window.plugin.anomalySimulator.active = this.checked;
+        window.plugin.anomalySimulator.refresh();
+      });
+
+      $('#anomaly-phase').change(function () {
+        window.plugin.anomalySimulator.phase = parseInt(this.value);
+        window.plugin.anomalySimulator.refresh();
+      });
+
+      $('#anomaly-add-site').click(window.plugin.anomalySimulator.addSite);
+      $('#anomaly-add-zone').click(window.plugin.anomalySimulator.addZone);
+      $('#anomaly-export').click(window.plugin.anomalySimulator.exportConfig);
+      $('#anomaly-import').click(window.plugin.anomalySimulator.importConfig);
+      $('#anomaly-close').click(() => $('#anomaly-sim-panel').hide());
+    },
+
+    addSite: function () {
+      const name = prompt('Nombre del sitio:');
+      const lat = parseFloat(prompt('Latitud:'));
+      const lng = parseFloat(prompt('Longitud:'));
+      if (!name || isNaN(lat) || isNaN(lng)) {
+        alert('Datos inválidos.');
+        return;
+      }
+      window.plugin.anomalySimulator.sites.push({
+        id: 'site_' + Date.now(),
+        name,
+        latLng: L.latLng(lat, lng),
+        active: true,
+        phase: window.plugin.anomalySimulator.phase,
+        marker: null
+      });
+      window.plugin.anomalySimulator.refresh();
+    },
+
+    addZone: function () {
+      const input = prompt('Coordenadas (lat,lng;lat,lng;...):');
+      if (!input) return;
+      try {
+        const latlngs = input.split(';').map(pair => {
+          const [lat, lng] = pair.split(',').map(Number);
+          if (isNaN(lat) || isNaN(lng)) throw new Error();
+          return [lat, lng];
+        });
+        const polygon = L.polygon(latlngs, {
+          color: 'red',
+          fillColor: '#f03',
+          fillOpacity: 0.3,
+          weight: 2
+        });
+        window.plugin.anomalySimulator.zones.push({
+          latLngs: latlngs,
+          polygon: polygon,
+          active: true,
+          phase: window.plugin.anomalySimulator.phase
+        });
+        window.plugin.anomalySimulator.refresh();
+      } catch {
+        alert('Formato inválido.');
+      }
+    },
+
+    exportConfig: function () {
+      const config = {
+        active: window.plugin.anomalySimulator.active,
+        phase: window.plugin.anomalySimulator.phase,
+        zones: window.plugin.anomalySimulator.zones.map(z => ({
+          latLngs: z.latLngs,
+          active: z.active,
+          phase: z.phase
+        })),
+        sites: window.plugin.anomalySimulator.sites.map(s => ({
+          id: s.id,
+          name: s.name,
+          latLng: s.latLng,
+          active: s.active,
+          phase: s.phase
+        }))
+      };
+      prompt('Config JSON:', JSON.stringify(config, null, 2));
+    },
+
+    importConfig: function () {
+      const input = prompt('Pega configuración JSON:');
+      if (!input) return;
+      try {
+        const data = JSON.parse(input);
+        window.plugin.anomalySimulator.zones.forEach(z => {
+          if (window.map.hasLayer(z.polygon)) window.map.removeLayer(z.polygon);
+        });
+        window.plugin.anomalySimulator.sites.forEach(s => {
+          if (s.marker) window.map.removeLayer(s.marker);
+        });
+
+        window.plugin.anomalySimulator.zones = data.zones.map(z => {
+          const polygon = L.polygon(z.latLngs, {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.3,
+            weight: 2
+          });
+          return { ...z, polygon };
+        });
+
+        window.plugin.anomalySimulator.sites = data.sites.map(s => ({
+          ...s,
+          latLng: L.latLng(s.latLng.lat, s.latLng.lng),
+          marker: null
+        }));
+
+        window.plugin.anomalySimulator.phase = data.phase || 1;
+        window.plugin.anomalySimulator.active = data.active || false;
+
+        $('#anomaly-active').prop('checked', window.plugin.anomalySimulator.active);
+        $('#anomaly-phase').val(window.plugin.anomalySimulator.phase);
+        window.plugin.anomalySimulator.refresh();
+      } catch (e) {
+        alert('Error en JSON.');
+      }
+    },
+
     refresh: function () {
-      // Limpia todo lo visible
       window.plugin.anomalySimulator.zones.forEach(z => {
         if (window.map.hasLayer(z.polygon)) window.map.removeLayer(z.polygon);
       });
@@ -195,29 +200,26 @@ function wrapper(plugin_info) {
 
       if (!window.plugin.anomalySimulator.active) return;
 
-      // Dibuja zonas
       window.plugin.anomalySimulator.zones.forEach(z => {
         if (z.active && z.phase === window.plugin.anomalySimulator.phase) {
           z.polygon.addTo(window.map);
         }
       });
 
-      // Dibuja sitios
       window.plugin.anomalySimulator.sites.forEach(s => {
         if (s.active && s.phase === window.plugin.anomalySimulator.phase) {
-          var marker = L.circleMarker(s.latLng, {
+          s.marker = L.circleMarker(s.latLng, {
             color: 'red',
             fillColor: 'red',
             fillOpacity: 0.9,
             radius: 6
           }).bindPopup(s.name).addTo(window.map);
-          s.marker = marker;
         }
       });
     }
   };
 
-  var setup = window.plugin.anomalySimulator.setup;
+  const setup = window.plugin.anomalySimulator.setup;
   setup.info = plugin_info;
 
   if (window.iitcLoaded) {
@@ -227,10 +229,10 @@ function wrapper(plugin_info) {
   }
 }
 
-var plugin_info = {};
-plugin_info.script = document.currentScript ? document.currentScript.src : '';
-plugin_info.version = '1.2';
+const plugin_info = {};
+plugin_info.script = document.currentScript?.src || '';
+plugin_info.version = '1.3';
 
-var script = document.createElement('script');
+const script = document.createElement('script');
 script.appendChild(document.createTextNode('(' + wrapper + ')(' + JSON.stringify(plugin_info) + ');'));
 (document.body || document.head || document.documentElement).appendChild(script);
